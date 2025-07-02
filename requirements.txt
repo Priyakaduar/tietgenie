@@ -4,3 +4,4 @@ langchain_community
 langchain_together
 faiss-cpu
 sentence-transformers
+pypdf
