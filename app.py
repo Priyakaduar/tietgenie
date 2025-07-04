@@ -1,7 +1,8 @@
 import os
 import tempfile
-import traceback
+import base64
 import streamlit as st
+from dotenv import load_dotenv
 
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -9,76 +10,109 @@ from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain.chains import RetrievalQA
 from langchain_together import ChatTogether
-from dotenv import load_dotenv
+
+# ---------------- SETUP ----------------
 load_dotenv()
-
-
-# Load API key safely
 together_api_key = os.getenv("TOGETHER_API_KEY")
 
+st.set_page_config(page_title="Tiet-Genie 🤖", layout="wide")
 
+# ✅ FIXED: Background + readable overlay
+def set_bg_from_local(image_path):
+    with open(image_path, "rb") as f:
+        b64 = base64.b64encode(f.read()).decode()
+    st.markdown(f"""
+    <style>
+    .main > div:has(.block-container) {{
+        background: linear-gradient(rgba(255,255,255,0.85), rgba(255,255,255,0.85)),
+                    url("data:image/jpg;base64,{b64}") no-repeat center center fixed;
+        background-size: cover;
+    }}
+    .stChatMessageContent, .stMarkdown {{
+        color: #111 !important;
+        font-weight: 500;
+    }}
+    </style>
+    """, unsafe_allow_html=True)
 
-# Streamlit page setup
-st.set_page_config(page_title="PDF Chatbot", layout="centered")
-st.title("📚 Tiet-Genie")
-st.markdown("Ask questions based on uploaded PDFs using HuggingFace Embeddings + Together LLM.")
+set_bg_from_local("thaparbg.jpg")
 
-# Upload PDFs
-uploaded_files = st.file_uploader("Upload one or more PDFs", type=["pdf"], accept_multiple_files=True)
+# ---------------- SIDEBAR ----------------
+with st.sidebar:
+    st.image("TIETlogo.png", width=120)
+    st.markdown("## 🤖 Tiet-Genie")
+    st.markdown("How can I assist you today? 😊")
+    uploaded = st.file_uploader("📎 Attach additional PDFs", type="pdf", accept_multiple_files=True)
 
-if uploaded_files:
-    all_docs = []
+# --------------- PRELOADED PDFs ----------------
+@st.cache_resource(show_spinner="Loading TIET manuals...")
+def load_preloaded():
+    docs = []
+    for path in ["rules.pdf", "discipline.pdf"]:
+        docs.extend(PyPDFLoader(path).load())
+    splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
+    chunks = splitter.split_documents(docs)
+    embed = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+    return FAISS.from_documents(chunks, embed)
 
-    for uploaded_file in uploaded_files:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
-            tmp_file.write(uploaded_file.read())
-            tmp_path = tmp_file.name
+vs = load_preloaded()
 
-        loader = PyPDFLoader(tmp_path)
-        documents = loader.load()
-        all_docs.extend(documents)
+# --------------- USER PDFs ----------------
+if uploaded:
+    docs = []
+    for f in uploaded:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+            tmp.write(f.read())
+            docs.extend(PyPDFLoader(tmp.name).load())
+    splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
+    chunks = splitter.split_documents(docs)
+    embed = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+    user_vs = FAISS.from_documents(chunks, embed)
+    vs.merge_from(user_vs)
 
-    # Split and embed
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
-    split_docs = text_splitter.split_documents(all_docs)
-
-    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-    vectorstore = FAISS.from_documents(split_docs, embeddings)
-
-    # Retriever and LLM
-    retriever = vectorstore.as_retriever(
-        search_type="mmr",  # You can change to "similarity" if needed
-        search_kwargs={"k": 4, "fetch_k": 10, "lambda_mult": 0.5}
-    )
-
-    llm = ChatTogether(
-    model="deepseek-ai/DeepSeek-V3",
-    temperature=0.2,
-    together_api_key=together_api_key  # pass key explicitly
+# --------------- RAG SETUP ----------------
+retriever = vs.as_retriever(
+    search_type="mmr",
+    search_kwargs={"k": 4, "fetch_k": 10, "lambda_mult": 0.5}
 )
 
+llm = ChatTogether(
+    model="deepseek-ai/DeepSeek-V3",
+    temperature=0.2,
+    together_api_key=together_api_key
+)
 
-    qa_chain = RetrievalQA.from_chain_type(
-        llm=llm,
-        retriever=retriever,
-        return_source_documents=True
-    )
+qa_chain = RetrievalQA.from_chain_type(
+    llm=llm,
+    retriever=retriever,
+    return_source_documents=True
+)
 
-    # Ask a question
-    query = st.text_input("❓ Ask a question from the PDFs:")
-    if query:
-        try:
-            with st.spinner("Thinking..."):
-                result = qa_chain(query)
-                clean_result = result["result"].replace("**", "")
-                st.success("✅ Answer:")
-                st.write(clean_result)
+# --------------- CHAT STATE ----------------
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
 
-                with st.expander("📖 Source Snippets"):
-                    for i, doc in enumerate(result["source_documents"]):
-                        snippet = doc.page_content.replace("**", "")
-                        st.markdown(f"**Snippet {i+1}:** {snippet[:500]}...")
-        except Exception as e:
-            st.error(f" Error: {str(e)}")
-            st.text(traceback.format_exc())
+# --------------- DISPLAY CHAT HISTORY ----------------
+for msg in st.session_state.chat_history:
+    with st.chat_message(msg["role"]):
+        st.write(msg["message"])
+
+# --------------- USER INPUT ----------------
+user_input = st.chat_input("Ask a question...")
+if user_input:
+    # Show user message
+    with st.chat_message("user"):
+        st.write(user_input)
+    st.session_state.chat_history.append({"role": "user", "message": user_input})
+
+    # Process with QA chain
+    with st.chat_message("assistant"):
+        with st.spinner("Thinking..."):
+            try:
+                result = qa_chain({"query": user_input})
+                response = result["result"]
+            except Exception as e:
+                response = f"⚠ Error: {str(e)}"
+        st.write(response)
+        st.session_state.chat_history.append({"role": "assistant", "message": response})
 
