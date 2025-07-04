@@ -29,7 +29,7 @@ def set_bg_with_overlay(image_path):
     }}
     .main > div:has(.block-container)::before {{
         content: "";
-        background-color: rgba(255, 255, 255, 0.82);
+        background-color: rgba(255, 255, 255, 0.82);  /* soft white overlay */
         position: absolute;
         top: 0; left: 0;
         width: 100%; height: 100%;
@@ -46,7 +46,7 @@ def set_bg_with_overlay(image_path):
     </style>
     """, unsafe_allow_html=True)
 
-set_bg_with_overlay("thaparbg.jpg")  # Your local background image
+set_bg_with_overlay("thaparbg.jpg")  # your background image
 
 # ---------------- SIDEBAR ----------------
 with st.sidebar:
@@ -103,17 +103,6 @@ qa_chain = RetrievalQA.from_chain_type(
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
-if "greeted" not in st.session_state:
-    st.session_state.greeted = False
-
-# ---------------- GREETING ----------------
-if not st.session_state.greeted and not st.session_state.chat_history:
-    st.markdown("""
-    <h2 style='text-align: center; color: #8B0000; font-weight: bold; margin-top: 30px;'>
-        👋 Hello TIETian! How can I help you today?
-    </h2>
-    """, unsafe_allow_html=True)
-
 # ---------------- CHAT UI ----------------
 for msg in st.session_state.chat_history:
     with st.chat_message(msg["role"]):
@@ -124,7 +113,6 @@ if user_input:
     with st.chat_message("user"):
         st.write(user_input)
     st.session_state.chat_history.append({"role": "user", "message": user_input})
-    st.session_state.greeted = True
 
     with st.chat_message("assistant"):
         with st.spinner("Thinking..."):
