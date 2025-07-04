@@ -48,7 +48,7 @@ with st.sidebar:
 @st.cache_resource(show_spinner="Loading TIET manuals...")
 def load_preloaded():
     docs = []
-    for path in ["rules.pdf", "discipline.pdf"]:
+    for path in ["rules.pdf"]:
         docs.extend(PyPDFLoader(path).load())
     splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
     chunks = splitter.split_documents(docs)
