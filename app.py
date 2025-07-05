@@ -29,7 +29,7 @@ def set_bg_with_overlay(image_path):
     }}
     .main > div:has(.block-container)::before {{
         content: "";
-        background-color: rgba(0, 0, 0, 0.3);  /* Transparent black */
+        background-color: rgba(255, 255, 255, 0.3);  /* Transparent black */
   /* soft white overlay */
         position: absolute;
         top: 0; left: 0;
