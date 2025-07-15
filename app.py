@@ -170,7 +170,7 @@ if uploaded_files:
                 pass
                 
         except Exception as e:
-            st.error(f"❌ Error processing {f.name}: {str(e)}")
+            st.error(f" Error processing {f.name}: {str(e)}")
 
     # Only update vector store if we have new documents
     if new_docs:
@@ -180,9 +180,9 @@ if uploaded_files:
             embed = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
             new_vs = FAISS.from_documents(new_chunks, embed)
             vector_store.merge_from(new_vs)
-            st.success(f"✅ Added {len(new_docs)} documents to knowledge base")
+            st.success(f" Added {len(new_docs)} documents to knowledge base")
         except Exception as e:
-            st.error(f"❌ Error updating vector store: {str(e)}")
+            st.error(f" Error updating vector store: {str(e)}")
 
 
 # ---------------- LLM + RETRIEVER ----------------
@@ -194,7 +194,7 @@ try:
 
     # Check if Together API key is available
     if not together_api_key:
-        st.error("❌ TOGETHER_API_KEY not found in environment variables. Please set it in your .env file.")
+        st.error(" TOGETHER_API_KEY not found in environment variables. Please set it in your .env file.")
         st.stop()
 
     llm = ChatTogether(
@@ -203,7 +203,7 @@ try:
         together_api_key=together_api_key
     )
 except Exception as e:
-    st.error(f"❌ Error initializing LLM or retriever: {str(e)}")
+    st.error(f" Error initializing LLM or retriever: {str(e)}")
     st.stop()
 
 
