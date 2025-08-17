@@ -43,7 +43,7 @@ TOGETHER_API_KEY=your_chat_together_api_key
 ### RUn the App
 streamlit run app.py
 
-Live Demo: https://tietgenie-lhetbqhsj7igti9ghfx9nc.streamlit.app/
+Live Demo: [https://tietgenie-lhetbqhsj7igti9ghfx9nc.streamlit.app/](https://tietgenie-lhetbqhsj7igti9ghfx9nc.streamlit.app/)
 
 
 
